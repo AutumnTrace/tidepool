@@ -50,6 +50,8 @@ export class App {
   presetId: string | null = null;
   /** Benchmarks pin the steps per frame instead of following wall time. */
   fixedSteps: number | null = null;
+  /** One-shot hook run right after a frame is submitted, in the same task (for capture). */
+  afterFrame: (() => void) | null = null;
 
   private current: AppState;
   private readonly method: Method;
@@ -404,6 +406,9 @@ export class App {
     timer?.resolve(encoder);
     this.device.queue.submit([encoder.finish()]);
     timer?.endFrame();
+    const hook = this.afterFrame;
+    this.afterFrame = null;
+    hook?.();
 
     const avgMs = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.hud.update(now, {
