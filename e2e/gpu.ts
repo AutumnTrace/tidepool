@@ -9,5 +9,6 @@ export async function openWithGpu(page: Page, path = './'): Promise<void> {
     if (!window.tidepool) return document.querySelector('.unsupported .reason')?.textContent ?? 'WebGPU unavailable';
     return null;
   });
-  test.skip(reason !== null, `Skipping GPU test: ${reason}`);
+  if (reason !== null) console.log(`[tidepool] no usable WebGPU adapter, skipping: ${reason}`);
+  test.skip(reason !== null, `No usable WebGPU adapter: ${reason}`);
 }
