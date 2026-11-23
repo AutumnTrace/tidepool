@@ -74,6 +74,16 @@ export const SHORTCUTS: Shortcut[] = [
       if (k >= PARAM_LIMITS.species.min && k <= PARAM_LIMITS.species.max) app.setParam('species', k);
     },
   },
+  {
+    keys: ['t'],
+    show: ['T'],
+    label: 'Trails on / off',
+    run: (app, ui) => {
+      const on = app.state.view.trails === 0;
+      app.setView('trails', on ? 0.85 : 0);
+      ui.toast(on ? 'Trails: on' : 'Trails: off');
+    },
+  },
   { keys: ['0'], show: ['0'], label: 'Reset the camera', run: (app) => app.resetCamera() },
   { keys: ['p'], show: ['P'], label: 'Show / hide the panel', run: (_app, ui) => ui.togglePanel() },
   { keys: ['d'], show: ['D'], label: 'GPU timings', run: (app) => app.hud.toggle() },

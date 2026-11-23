@@ -50,9 +50,14 @@ button {
 
 .hud {
   position: fixed;
-  left: 14px;
+  left: 12px;
   top: 12px;
   margin: 0;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgb(4 6 11 / 62%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font: 11px/1.45 var(--font-mono);
   color: var(--ink-dim);
   white-space: pre;

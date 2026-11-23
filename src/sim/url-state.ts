@@ -1,7 +1,8 @@
 /**
  * The whole configuration lives in the URL hash, so any view can be shared:
  *
- *   #seed=42&n=65536&k=6&density=80&force=10&friction=0.04&beta=0.3&speed=1&m=<matrix>
+ *   #seed=42&n=65536&k=6&density=80&force=10&friction=0.04&beta=0.3&speed=1
+ *    &trails=0&glow=1&exposure=1&m=<matrix>
  *
  * The matrix is K*K signed bytes (value * 100) in base64url. Missing or
  * malformed fields fall back to defaults; a missing or mismatched matrix is
@@ -18,9 +19,26 @@ export interface AppState {
   matrix: Matrix;
   /** Simulation speed multiplier (steps per second / 60). */
   speed: number;
+  view: ViewSettings;
+}
+
+/** How it looks. Shared in the URL too, because a link should look like what you saw. */
+export interface ViewSettings {
+  /** Fraction of the previous frame kept each frame; 0 turns trails off. */
+  trails: number;
+  /** Sprite size multiplier. */
+  glow: number;
+  /** Tone-mapping exposure. */
+  exposure: number;
 }
 
 export const SPEED_LIMITS = { min: 0.25, max: 4, step: 0.25 } as const;
+export const VIEW_LIMITS = {
+  trails: { min: 0, max: 0.97, step: 0.01 },
+  glow: { min: 0.4, max: 3, step: 0.05 },
+  exposure: { min: 0.25, max: 4, step: 0.05 },
+} as const;
+export const DEFAULT_VIEW: ViewSettings = { trails: 0, glow: 1, exposure: 1 };
 
 /** The matrix a seed implies when nobody has edited it. */
 export function matrixForSeed(seed: number, k: number): Matrix {
@@ -35,6 +53,7 @@ export function defaultState(): AppState {
     params: { ...first.params },
     matrix: { k: first.matrix.k, values: first.matrix.values.slice() },
     speed: 1,
+    view: { ...DEFAULT_VIEW },
   };
 }
 
@@ -49,6 +68,9 @@ export function encodeState(s: AppState): string {
     ['friction', p.friction],
     ['beta', p.beta],
     ['speed', s.speed],
+    ['trails', s.view.trails],
+    ['glow', s.view.glow],
+    ['exposure', s.view.exposure],
     ['m', encodeMatrix(s.matrix)],
   ];
   return fields.map(([k, v]) => `${k}=${v}`).join('&');
@@ -82,10 +104,16 @@ export function decodeState(hash: string): AppState {
     beta: num('beta', base.params.beta, L.beta.min, L.beta.max, PARAM_STEPS.beta),
   };
   const speed = num('speed', base.speed, SPEED_LIMITS.min, SPEED_LIMITS.max, SPEED_LIMITS.step);
+  const V = VIEW_LIMITS;
+  const view: ViewSettings = {
+    trails: num('trails', base.view.trails, V.trails.min, V.trails.max, V.trails.step),
+    glow: num('glow', base.view.glow, V.glow.min, V.glow.max, V.glow.step),
+    exposure: num('exposure', base.view.exposure, V.exposure.min, V.exposure.max, V.exposure.step),
+  };
   const m = q.get('m');
   // No seed and no usable matrix: keep the default rules if they still fit.
   const fallback =
     seedRaw === null && params.species === base.params.species ? base.matrix : matrixForSeed(seed, params.species);
   const matrix = (m !== null ? decodeMatrix(m, params.species) : null) ?? fallback;
-  return { seed, params, matrix, speed };
+  return { seed, params, matrix, speed, view };
 }
