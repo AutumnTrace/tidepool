@@ -1,0 +1,51 @@
+:root {
+  color-scheme: dark;
+  --bg: #04060b;
+  --ink: #dfe6f2;
+  --ink-dim: #8a94a8;
+  --font-ui: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.unsupported {
+  max-width: 34rem;
+  margin: 18vh auto 0;
+  padding: 0 1.5rem;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.unsupported h1 {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+}
+
+.unsupported code {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
