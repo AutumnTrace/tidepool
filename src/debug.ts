@@ -12,6 +12,7 @@ import { randomMatrix } from './sim/matrix';
 import { createRng } from './sim/rng';
 import { spawn } from './sim/spawn';
 import { exclusiveScan } from './sim/reference';
+import { PRESETS, type Preset } from './sim/presets';
 
 export interface GpuStepRequest {
   params?: Partial<SimParams>;
@@ -40,6 +41,7 @@ export interface DebugApi {
   app: App;
   adapter: { vendor: string; architecture: string; description: string; isFallback: boolean };
   timestamps: boolean;
+  presets: readonly Preset[];
   gpuStep(req: GpuStepRequest): Promise<GpuStepResult>;
   gpuScan(lengths: number[], seed: number): Promise<ScanCheck[]>;
 }
@@ -62,6 +64,7 @@ export function installDebugApi(app: App): void {
       isFallback: Boolean((info as GPUAdapterInfo & { isFallbackAdapter?: boolean }).isFallbackAdapter),
     },
     timestamps: app.gpu.timestamps,
+    presets: PRESETS,
 
     async gpuStep(req) {
       const params: SimParams = { ...DEFAULT_PARAMS, ...req.params };
