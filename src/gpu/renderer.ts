@@ -139,15 +139,11 @@ export class Renderer {
     const radius = Math.max(wanted, MIN_RADIUS_PX / cam.zoom);
     const shrink = wantedPx < MIN_RADIUS_PX ? (wantedPx / MIN_RADIUS_PX) ** 2 : 1;
 
-    // Which copies of the torus are on screen?
-    const halfW = width / 2 / cam.zoom + radius;
-    const halfH = height / 2 / cam.zoom + radius;
-    const x0 = Math.floor((cam.x - halfW) / size);
-    const x1 = Math.floor((cam.x + halfW) / size);
-    const y0 = Math.floor((cam.y - halfH) / size);
-    const y1 = Math.floor((cam.y + halfH) / size);
-    const tilesX = x1 - x0 + 1;
-    const tiles = tilesX * (y1 - y0 + 1);
+    // How many images of one particle can the visible span hold?
+    const spanX = width / cam.zoom + 2 * radius;
+    const spanY = height / cam.zoom + 2 * radius;
+    const copiesX = Math.ceil(spanX / size);
+    const copies = copiesX * Math.ceil(spanY / size);
 
     // Trails live in screen space, so a moving camera would smear them
     // across the world. Start clean whenever the view (or the world) changes.
@@ -177,9 +173,9 @@ export class Renderer {
     f[5] = radius;
     f[6] = BASE_INTENSITY * shrink * trailScale;
     u[7] = sim.count;
-    f[8] = x0;
-    f[9] = y0;
-    u[10] = tilesX;
+    f[8] = cam.x - spanX / 2;
+    f[9] = cam.y - spanY / 2;
+    u[10] = copiesX;
     f.set(this.palette, 12);
     this.device.queue.writeBuffer(this.view, 0, buf);
     this.device.queue.writeBuffer(this.compositeUniform, 0, new Float32Array([width, height, settings.exposure, 0]));
@@ -216,7 +212,7 @@ export class Renderer {
     }
     draw.setPipeline(this.particles);
     draw.setBindGroup(0, this.particleGroup!);
-    draw.draw(4, sim.count * tiles);
+    draw.draw(4, sim.count * copies);
     draw.end();
 
     const out = encoder.beginRenderPass({

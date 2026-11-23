@@ -8,7 +8,7 @@
  */
 const CAPACITY = 128;
 const RING = 3;
-const WINDOW = 60;
+const WINDOW = 240;
 
 export class GpuTimer {
   private readonly querySet: GPUQuerySet;

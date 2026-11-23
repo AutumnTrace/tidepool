@@ -1,9 +1,12 @@
 // Instanced glow sprites, added into an rgba16float buffer.
 //
-// The world is a torus, so when the view is wider than the world the same
-// particle is drawn once per visible tile: instance i is particle i % count
-// in tile i / count. Sprites that land off screen collapse to a point
-// outside the clip volume and cost nothing past the vertex stage.
+// The world is a torus, so a particle can be visible more than once: near
+// the seam when the view is exactly one world wide, or many times when
+// zoomed out. The visible span (plus a sprite radius of margin) starting at
+// V.origin holds at most copiesX by copiesY images of any particle, so
+// instance i draws particle i % count, image i / count: the first image at
+// or after origin, stepped by whole worlds. Images that still land off
+// screen collapse to a point outside the clip volume.
 
 struct View {
   center: vec2f,
@@ -15,8 +18,9 @@ struct View {
   // brightness per sprite, after energy compensation
   intensity: f32,
   count: u32,
-  tileOrigin: vec2f,
-  tilesX: u32,
+  // world-space corner of the visible span, margin included
+  origin: vec2f,
+  copiesX: u32,
   _pad: u32,
   palette: array<vec4f, 12>,
 }
@@ -36,8 +40,10 @@ fn vs(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VOut 
   var out: VOut;
   let p = ii % V.count;
   let t = ii / V.count;
-  let tile = V.tileOrigin + vec2f(f32(t % V.tilesX), f32(t / V.tilesX));
-  let center = (pos[p] + tile * V.worldSize - V.center) * V.scale;
+  let rel = pos[p] - V.origin;
+  let first = V.origin + rel - V.worldSize * floor(rel / V.worldSize);
+  let image = first + vec2f(f32(t % V.copiesX), f32(t / V.copiesX)) * V.worldSize;
+  let center = (image - V.center) * V.scale;
   let half = V.radius * abs(V.scale);
   if (any(abs(center) > vec2f(1.0) + half)) {
     out.clip = vec4f(2.0, 2.0, 2.0, 1.0);

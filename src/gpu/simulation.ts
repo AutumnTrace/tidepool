@@ -12,6 +12,8 @@ import type { Matrix } from '../sim/matrix';
 import type { ParticleState } from '../sim/spawn';
 
 const WORKGROUP = 256;
+/** Must match WG in forces.wgsl. */
+const FORCES_WORKGROUP = 128;
 
 /**
  * 'grid' is the real thing. 'brute' is the O(N^2) baseline it replaced,
@@ -180,7 +182,7 @@ export class Simulation {
     run('count', groups);
     this.scan.encode(encoder, timer);
     run('scatter', groups);
-    run('forces', groups);
+    run('forces', Math.ceil(n / FORCES_WORKGROUP));
   }
 
   private stepBrute(encoder: GPUCommandEncoder, timer?: GpuTimer): void {
