@@ -1,7 +1,7 @@
 import type { App, Tool } from '../app';
 import { PARAM_LIMITS, PARAM_STEPS, type SimParams } from '../sim/params';
 import { zeros } from '../sim/matrix';
-import { SPEED_LIMITS } from '../sim/url-state';
+import { SPEED_LIMITS, VIEW_LIMITS } from '../sim/url-state';
 import type { Preset } from '../sim/presets';
 import { MatrixEditor } from './matrix-editor';
 import { ICONS, h, icon } from './dom';
@@ -260,8 +260,45 @@ export class Panel {
         step: SPEED_LIMITS.step,
         log: true,
         get: () => s().speed,
-        set: (v) => app.update({ speed: v }),
+        set: (v) => app.update({ speed: v }, { preset: app.presetId }),
         format: (v) => `${v}×`,
+      }),
+    ];
+
+    // View
+    const V = VIEW_LIMITS;
+    const view = [
+      slider({
+        label: 'Trails',
+        hint: 'How much of the previous frame survives each frame. Pauses while the camera moves. Key: T.',
+        min: V.trails.min,
+        max: V.trails.max,
+        step: V.trails.step,
+        get: () => s().view.trails,
+        set: (v) => app.setView('trails', v),
+        format: (v) => (v === 0 ? 'off' : v.toFixed(2)),
+      }),
+      slider({
+        label: 'Glow',
+        hint: 'Sprite size.',
+        min: V.glow.min,
+        max: V.glow.max,
+        step: V.glow.step,
+        log: true,
+        get: () => s().view.glow,
+        set: (v) => app.setView('glow', v),
+        format: (v) => v.toFixed(2) + '×',
+      }),
+      slider({
+        label: 'Exposure',
+        hint: 'Brightness before the tone curve.',
+        min: V.exposure.min,
+        max: V.exposure.max,
+        step: V.exposure.step,
+        log: true,
+        get: () => s().view.exposure,
+        set: (v) => app.setView('exposure', v),
+        format: (v) => v.toFixed(2),
       }),
     ];
 
@@ -282,7 +319,7 @@ export class Panel {
     const section = (title: string, ...children: (Node | string)[]) =>
       h('section', {}, h('h2', { text: title }), ...children);
 
-    this.controls.push(count, species, ...physics);
+    this.controls.push(count, species, ...physics, ...view);
     const body = h(
       'div',
       { class: 'panel-body' },
@@ -291,6 +328,7 @@ export class Panel {
       section('Rules', editor.el, h('div', { class: 'button-row' }, randomize, this.mirror, zero)),
       section('World', count.el, species.el, seedRow),
       section('Physics', ...physics.map((c) => c.el)),
+      section('Look', ...view.map((c) => c.el)),
       section('Pointer', toolRow),
       h(
         'footer',

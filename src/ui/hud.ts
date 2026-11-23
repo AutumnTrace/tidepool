@@ -1,6 +1,6 @@
 import type { GpuTimer } from '../gpu/timing';
 
-const PASS_ORDER = ['clear', 'count', 'scan', 'scatter', 'forces', 'brute force', 'render'];
+const PASS_ORDER = ['clear', 'count', 'scan', 'scatter', 'forces', 'brute force', 'draw', 'composite'];
 
 export interface HudInfo {
   fps: number;

@@ -17,7 +17,7 @@ import {
 } from './sim/matrix';
 import { createRng, randomSeed } from './sim/rng';
 import { spawn } from './sim/spawn';
-import { decodeState, encodeState, type AppState } from './sim/url-state';
+import { decodeState, encodeState, type AppState, type ViewSettings } from './sim/url-state';
 import { matchPreset, type Preset } from './sim/presets';
 
 /** Simulation steps per second of wall time at speed 1. */
@@ -34,6 +34,7 @@ export interface StatePatch {
   params?: Partial<SimParams>;
   matrix?: Matrix;
   speed?: number;
+  view?: Partial<ViewSettings>;
 }
 
 export class App {
@@ -131,7 +132,13 @@ export class App {
       matrix = resize(matrix, params.species, createRng(randomSeed()));
       if (this.symmetric) matrix = symmetrize(matrix);
     }
-    this.current = { seed: patch.seed ?? prev.seed, params, matrix, speed: patch.speed ?? prev.speed };
+    this.current = {
+      seed: patch.seed ?? prev.seed,
+      params,
+      matrix,
+      speed: patch.speed ?? prev.speed,
+      view: { ...prev.view, ...patch.view },
+    };
     this.presetId = opts.preset ?? null;
 
     const respawn =
@@ -198,6 +205,10 @@ export class App {
 
   editCell(i: number, j: number, value: number): void {
     this.update({ matrix: set(this.current.matrix, i, j, value, this.symmetric) });
+  }
+
+  setView<K extends keyof ViewSettings>(key: K, value: ViewSettings[K]): void {
+    this.update({ view: { [key]: value } as Partial<ViewSettings> }, { preset: this.presetId });
   }
 
   setMatrix(matrix: Matrix): void {
@@ -273,8 +284,9 @@ export class App {
     this.camera = fitCamera(this.sim.world, this.canvas.width, this.canvas.height);
   }
 
+  /** Zoomed out far enough to see the torus repeat about three times across. */
   private minZoom(): number {
-    return coverZoom(this.sim.world, this.canvas.width, this.canvas.height);
+    return coverZoom(this.sim.world, this.canvas.width, this.canvas.height) / 3;
   }
 
   private clampCamera(): void {
@@ -376,7 +388,15 @@ export class App {
     timer?.beginFrame(steps);
     const encoder = this.device.createCommandEncoder();
     for (let i = 0; i < steps; i++) this.sim.step(encoder, timer);
-    this.renderer.render(encoder, this.sim, this.camera, this.canvas.width, this.canvas.height, timer);
+    this.renderer.render(
+      encoder,
+      this.sim,
+      this.camera,
+      this.canvas.width,
+      this.canvas.height,
+      this.current.view,
+      timer,
+    );
     timer?.resolve(encoder);
     this.device.queue.submit([encoder.finish()]);
     timer?.endFrame();

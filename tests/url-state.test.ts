@@ -25,6 +25,11 @@ describe('URL state', () => {
         },
         matrix: randomMatrix(k, rng),
         speed: 0.25 * (1 + rng.int(16)),
+        view: {
+          trails: rng.next() < 0.3 ? 0 : Math.round(rng.range(0.5, 0.97) * 100) / 100,
+          glow: Math.round(rng.range(0.4, 3) * 20) / 20,
+          exposure: Math.round(rng.range(0.25, 4) * 20) / 20,
+        },
       };
       const hash = encodeState(s);
       const back = decodeState(hash);
@@ -35,7 +40,7 @@ describe('URL state', () => {
 
   it('produces a readable hash', () => {
     expect(encodeState(defaultState())).toMatch(
-      /^seed=1&n=65536&k=6&density=80&force=10&friction=0.04&beta=0.3&speed=1&m=[A-Za-z0-9_-]+$/,
+      /^seed=1&n=65536&k=6&density=80&force=10&friction=0.04&beta=0.3&speed=1&trails=0&glow=1&exposure=1&m=[A-Za-z0-9_-]+$/,
     );
   });
 
