@@ -1,6 +1,7 @@
 import './style.css';
 import { initGpu, WebGpuUnavailable } from './gpu/device';
 import { App } from './app';
+import { installDebugApi } from './debug';
 
 function showUnsupported(reason: string): void {
   const box = document.createElement('div');
@@ -22,6 +23,7 @@ async function main(): Promise<void> {
   try {
     const gpu = await initGpu();
     const app = new App(gpu, canvas);
+    installDebugApi(app);
     app.start();
   } catch (err) {
     canvas.remove();
