@@ -52,7 +52,7 @@ export const PARAM_LIMITS = {
 export const DEFAULT_PARAMS: SimParams = {
   count: 1 << 16,
   species: 6,
-  density: 30,
+  density: 80,
   force: 10,
   friction: 0.04,
   beta: 0.3,
@@ -72,4 +72,19 @@ export function worldFor(count: number, density: number): World {
 /** Per-step velocity multiplier for a given half-life. */
 export function frictionFactor(halfLife: number, dt = DT): number {
   return Math.pow(0.5, dt / halfLife);
+}
+
+/** Slider resolution for each tunable; URL values are snapped to these. */
+export const PARAM_STEPS = {
+  density: 1,
+  force: 0.1,
+  friction: 0.005,
+  beta: 0.01,
+} as const;
+
+export function snap(v: number, step: number): number {
+  // Decimal places of the step itself: 0.25 needs two, not the one that
+  // log10 would suggest.
+  const decimals = (String(step).split('.')[1] ?? '').length;
+  return Number((Math.round(v / step) * step).toFixed(decimals));
 }
