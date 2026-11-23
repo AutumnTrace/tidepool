@@ -69,6 +69,8 @@ export interface DebugApi {
   gpuStep(req: GpuStepRequest): Promise<GpuStepResult>;
   gpuScan(lengths: number[], seed: number): Promise<ScanCheck[]>;
   bench(req: BenchRequest): Promise<BenchResult>;
+  /** RGBA pixels of the next frame, scaled to width x height, base64. */
+  captureFrame(width: number, height: number): Promise<string>;
 }
 
 declare global {
@@ -166,6 +168,25 @@ export function installDebugApi(app: App): void {
         gpuFrameMs: app.timer?.frameStats().gpuMs ?? 0,
         candidates: visits / sim.count,
       };
+    },
+
+    captureFrame(width, height) {
+      return new Promise((resolve) => {
+        // Must run in the same task as the frame's submit: once the task
+        // ends the canvas texture is presented and can't be read back.
+        app.afterFrame = () => {
+          const canvas = new OffscreenCanvas(width, height);
+          const ctx = canvas.getContext('2d')!;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(app.canvas, 0, 0, width, height);
+          const bytes = ctx.getImageData(0, 0, width, height).data;
+          let bin = '';
+          for (let i = 0; i < bytes.length; i += 0x8000) {
+            bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+          }
+          resolve(btoa(bin));
+        };
+      });
     },
 
     async gpuScan(lengths, seed) {
