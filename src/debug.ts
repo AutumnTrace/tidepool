@@ -37,6 +37,30 @@ export interface ScanCheck {
   firstBad: number;
 }
 
+export interface BenchRequest {
+  /** Steps to run before measuring, so the structures have formed. */
+  warmup: number;
+  /** Frames to measure, at exactly stepsPerFrame steps each. */
+  frames: number;
+  stepsPerFrame: number;
+}
+
+export interface BenchResult {
+  count: number;
+  worldSize: number;
+  bins: number;
+  frames: number;
+  /** Mean and 95th percentile of requestAnimationFrame intervals, ms. */
+  frameMs: number;
+  frameP95Ms: number;
+  /** Mean GPU ms per pass occurrence (per step for simulation passes). */
+  passes: Record<string, number>;
+  /** Mean GPU ms per frame, all passes. */
+  gpuFrameMs: number;
+  /** Mean neighbour candidates visited per particle (from the bin layout). */
+  candidates: number;
+}
+
 export interface DebugApi {
   app: App;
   adapter: { vendor: string; architecture: string; description: string; isFallback: boolean };
@@ -44,6 +68,7 @@ export interface DebugApi {
   presets: readonly Preset[];
   gpuStep(req: GpuStepRequest): Promise<GpuStepResult>;
   gpuScan(lengths: number[], seed: number): Promise<ScanCheck[]>;
+  bench(req: BenchRequest): Promise<BenchResult>;
 }
 
 declare global {
@@ -83,6 +108,63 @@ export function installDebugApi(app: App): void {
         vel: Array.from(out.vel),
         tags: Array.from(out.tags),
         binStarts: Array.from(starts),
+      };
+    },
+
+    async bench(req) {
+      app.running = false;
+      for (let done = 0; done < req.warmup; done += 50) {
+        app.advance(Math.min(50, req.warmup - done));
+        await device.queue.onSubmittedWorkDone();
+      }
+      app.fixedSteps = req.stepsPerFrame;
+      app.running = true;
+      // Let a few frames go by so the timer ring and caches settle.
+      const intervals: number[] = [];
+      await new Promise<void>((resolve) => {
+        let last = 0;
+        let seen = 0;
+        const tick = (t: number) => {
+          if (seen === 10) app.timer?.reset();
+          if (seen > 10) intervals.push(t - last);
+          last = t;
+          seen++;
+          if (intervals.length < req.frames) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+      await device.queue.onSubmittedWorkDone();
+      await new Promise((r) => setTimeout(r, 100));
+      app.fixedSteps = null;
+      const sorted = intervals.slice().sort((a, b) => a - b);
+      const sim = app.sim;
+      // Average over particles of how many sorted entries the forces pass
+      // walks: the sum of the 3x3 bin populations around each particle.
+      const starts = await sim.readBinStarts();
+      const g = sim.world.grid;
+      const pop = (x: number, y: number) => {
+        const b = ((y + g) % g) * g + ((x + g) % g);
+        return starts[b + 1]! - starts[b]!;
+      };
+      let visits = 0;
+      for (let y = 0; y < g; y++) {
+        for (let x = 0; x < g; x++) {
+          let around = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) around += pop(x + dx, y + dy);
+          visits += pop(x, y) * around;
+        }
+      }
+      return {
+        count: sim.count,
+        worldSize: sim.world.size,
+        bins: sim.world.bins,
+        frames: intervals.length,
+        frameMs: intervals.reduce((a, b) => a + b, 0) / intervals.length,
+        frameP95Ms: sorted[Math.floor(sorted.length * 0.95)]!,
+        passes: Object.fromEntries(app.timer?.averages() ?? []),
+        gpuFrameMs: app.timer?.frameStats().gpuMs ?? 0,
+        candidates: visits / sim.count,
       };
     },
 

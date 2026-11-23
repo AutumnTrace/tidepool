@@ -10,10 +10,15 @@
 @group(0) @binding(6) var<storage, read_write> vel: array<vec2f>;
 @group(0) @binding(7) var<storage, read_write> tags: array<u32>;
 
+// The attraction matrix, copied out of the uniform buffer once per
+// workgroup. Neighbouring threads look up different columns, and divergent
+// indexing into a uniform array serialises on the constant cache.
+var<workgroup> matrix: array<f32, 144>;
+
 // Sum of forces on a particle at p from sorted particles [start, end).
 // `shift` moves neighbours across the wrap seam into p's frame, so the
 // inner loop never has to think about the torus.
-fn accumulate(p: vec2f, mine: u32, start: u32, end: u32, shift: vec2f) -> vec2f {
+fn accumulate(p: vec2f, row: u32, start: u32, end: u32, shift: vec2f) -> vec2f {
   let local = p - shift;
   let rMax2 = P.rMax * P.rMax;
   let invRMax = 1.0 / P.rMax;
@@ -22,22 +27,29 @@ fn accumulate(p: vec2f, mine: u32, start: u32, end: u32, shift: vec2f) -> vec2f 
     let d = sortedPos[j] - local;
     let r2 = dot(d, d);
     if (r2 > 0.0 && r2 < rMax2) {
-      let r = sqrt(r2);
-      let a = attraction(mine, sortedTags[j] & SPECIES_MASK);
-      f += d * (kernel(r * invRMax, a) / r);
+      let invR = inverseSqrt(r2);
+      let a = matrix[row + (sortedTags[j] & SPECIES_MASK)];
+      f += d * (kernel(r2 * invR * invRMax, a) * invR);
     }
   }
   return f;
 }
 
-@compute @workgroup_size(256)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
+const WG = 128u;
+
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_index) li: u32) {
+  for (var k = li; k < 144u; k += WG) {
+    matrix[k] = P.matrix[k >> 2u][k & 3u];
+  }
+  workgroupBarrier();
+
   let i = gid.x;
   if (i >= P.count) {
     return;
   }
   let p = sortedPos[i];
-  let mine = sortedTags[i] & SPECIES_MASK;
+  let row = (sortedTags[i] & SPECIES_MASK) * 12u;
   let c = vec2i(cellOf(p));
   let g = i32(P.grid);
 
@@ -52,13 +64,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
       y -= g;
       shiftY = P.worldSize;
     }
-    let row = u32(y) * P.grid;
+    let rowStart = u32(y) * P.grid;
     if (c.x >= 1 && c.x <= g - 2) {
       // Bins are row-major, so x-1, x, x+1 in one row are one contiguous
       // run of the sorted buffer: a single loop instead of three.
-      let start = binStart[row + u32(c.x - 1)];
-      let end = binStart[row + u32(c.x + 2)];
-      force += accumulate(p, mine, start, end, vec2f(0.0, shiftY));
+      let start = binStart[rowStart + u32(c.x - 1)];
+      let end = binStart[rowStart + u32(c.x + 2)];
+      force += accumulate(p, row, start, end, vec2f(0.0, shiftY));
     } else {
       for (var dx = -1; dx <= 1; dx++) {
         var x = c.x + dx;
@@ -70,8 +82,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
           x -= g;
           shiftX = P.worldSize;
         }
-        let b = row + u32(x);
-        force += accumulate(p, mine, binStart[b], binStart[b + 1u], vec2f(shiftX, shiftY));
+        let b = rowStart + u32(x);
+        force += accumulate(p, row, binStart[b], binStart[b + 1u], vec2f(shiftX, shiftY));
       }
     }
   }

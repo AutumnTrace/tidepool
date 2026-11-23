@@ -48,6 +48,8 @@ export class App {
   tool: Tool = 'pull';
   symmetric: boolean;
   presetId: string | null = null;
+  /** Benchmarks pin the steps per frame instead of following wall time. */
+  fixedSteps: number | null = null;
 
   private current: AppState;
   private readonly method: Method;
@@ -373,7 +375,9 @@ export class App {
     if (this.frameTimes.length > 60) this.frameTimes.shift();
 
     let steps = 0;
-    if (this.running) {
+    if (this.running && this.fixedSteps !== null) {
+      steps = this.fixedSteps;
+    } else if (this.running) {
       this.accumulator += Math.min(elapsedMs / 1000, 0.25) * STEP_RATE * this.current.speed;
       const cap = this.stepCap();
       steps = Math.min(Math.floor(this.accumulator), cap);

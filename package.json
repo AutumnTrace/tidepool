@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "bench": "vite build && node scripts/bench.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
@@ -21,5 +22,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
