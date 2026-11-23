@@ -26,7 +26,7 @@ function toState(r: { pos: number[]; vel: number[]; tags: number[] }): ParticleS
 }
 
 test.describe('GPU simulation vs CPU reference', () => {
-  test.beforeEach(async ({ page }) => openWithGpu(page));
+  test.beforeEach(async ({ page }) => openWithGpu(page, './', { hardware: true }));
 
   test('prefix sum is exact across one, two and three levels', async ({ page }) => {
     const lengths = [1, 3, 1023, 1024, 1025, 4097, 65_537, 1_048_577, 2_500_000];
