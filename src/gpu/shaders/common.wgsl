@@ -63,3 +63,13 @@ fn pointerAccel(p: vec2f) -> vec2f {
   let falloff = 1.0 - r / P.pointerRadius;
   return (d / r) * P.pointerStrength * falloff * falloff;
 }
+
+// Grid cell of a position. The min() matters: see wrapPosition().
+fn cellOf(p: vec2f) -> vec2u {
+  return min(vec2u(p * P.invCell), vec2u(P.grid - 1u));
+}
+
+fn binOf(p: vec2f) -> u32 {
+  let c = cellOf(p);
+  return c.y * P.grid + c.x;
+}

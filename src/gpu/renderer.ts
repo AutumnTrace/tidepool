@@ -1,6 +1,7 @@
 import particlesSrc from './shaders/particles.wgsl?raw';
 import type { Camera } from '../camera';
 import type { Simulation } from './simulation';
+import type { GpuTimer } from './timing';
 import { PALETTE, hexToRgb, srgbToLinear } from '../sim/palette';
 
 const VIEW_SIZE = 224;
@@ -40,7 +41,14 @@ export class Renderer {
     this.view = device.createBuffer({ size: VIEW_SIZE, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   }
 
-  render(encoder: GPUCommandEncoder, sim: Simulation, cam: Camera, width: number, height: number): void {
+  render(
+    encoder: GPUCommandEncoder,
+    sim: Simulation,
+    cam: Camera,
+    width: number,
+    height: number,
+    timer?: GpuTimer,
+  ): void {
     const v = new Float32Array(VIEW_SIZE / 4);
     v[0] = cam.x;
     v[1] = cam.y;
@@ -55,20 +63,21 @@ export class Renderer {
     });
     this.device.queue.writeBuffer(this.view, 0, v);
 
-    if (this.boundSim !== sim || this.boundPositions !== sim.positions) {
+    if (this.boundSim !== sim || this.boundPositions !== sim.pos) {
       this.bindGroup = this.device.createBindGroup({
         layout: this.pipeline.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: { buffer: this.view } },
-          { binding: 1, resource: { buffer: sim.positions } },
+          { binding: 1, resource: { buffer: sim.pos } },
           { binding: 2, resource: { buffer: sim.tags } },
         ],
       });
       this.boundSim = sim;
-      this.boundPositions = sim.positions;
+      this.boundPositions = sim.pos;
     }
 
     const pass = encoder.beginRenderPass({
+      timestampWrites: timer?.pass('render'),
       colorAttachments: [
         {
           view: this.context.getCurrentTexture().createView(),

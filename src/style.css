@@ -49,3 +49,20 @@ body {
   font-family: var(--font-mono);
   color: var(--ink);
 }
+
+.hud {
+  position: fixed;
+  left: 14px;
+  top: 12px;
+  margin: 0;
+  font: 11px/1.45 var(--font-mono);
+  color: var(--ink-dim);
+  white-space: pre;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 80%);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-big {
+  color: var(--ink);
+}
