@@ -19,6 +19,7 @@ import { createRng, randomSeed } from './sim/rng';
 import { spawn } from './sim/spawn';
 import { decodeState, encodeState, type AppState, type ViewSettings } from './sim/url-state';
 import { matchPreset, type Preset } from './sim/presets';
+import { isSoftwareAdapter, pickCount, type ProbeTiming } from './sim/probe';
 
 /** Simulation steps per second of wall time at speed 1. */
 const STEP_RATE = 60;
@@ -26,8 +27,17 @@ const MAX_STEPS_PER_FRAME = 4;
 /** GPU milliseconds per frame we are willing to spend on simulation steps. */
 const STEP_BUDGET_MS = 12;
 const SIM_PASSES = ['clear', 'count', 'scan', 'scatter', 'forces', 'brute force'];
+/** Timed frames the startup probe drops while clocks and caches settle, then the frames it averages. */
+const PROBE_WARMUP_FRAMES = 20;
+const PROBE_FRAMES = 40;
 
 export type Tool = 'pull' | 'push' | 'pan';
+
+/** What the startup probe measured, and the count it chose from that. */
+export interface ProbeOutcome {
+  timing: ProbeTiming;
+  count: number;
+}
 
 export interface StatePatch {
   seed?: number;
@@ -62,6 +72,7 @@ export class App {
   private pendingSteps = 0;
   private frameTimes: number[] = [];
   private urlTimer = 0;
+  private probe: { state: AppState; measuring: boolean; done: (outcome: ProbeOutcome | null) => void } | null = null;
 
   constructor(
     readonly gpu: Gpu,
@@ -268,6 +279,52 @@ export class App {
     this.device.queue.submit([encoder.finish()]);
   }
 
+  /**
+   * Times the next frames at the current count, then switches to the count
+   * pickCount suggests for this GPU (see sim/probe.ts). Resolves null without
+   * changing anything when there are no timestamp queries, on a software
+   * adapter, or once anything else changes the state or pauses the app first.
+   */
+  probeCount(): Promise<ProbeOutcome | null> {
+    if (!this.timer || isSoftwareAdapter(this.gpu.info)) return Promise.resolve(null);
+    this.probe?.done(null);
+    return new Promise((done) => {
+      this.probe = { state: this.current, measuring: false, done };
+    });
+  }
+
+  /** Called once per frame while a probe is running. */
+  private checkProbe(): void {
+    const probe = this.probe!;
+    if (this.current !== probe.state || !this.running || this.fixedSteps !== null) {
+      this.probe = null;
+      probe.done(null);
+      return;
+    }
+    const timer = this.timer!;
+    const { samples } = timer.frameStats();
+    if (!probe.measuring) {
+      if (samples >= PROBE_WARMUP_FRAMES) {
+        timer.reset();
+        probe.measuring = true;
+      }
+      return;
+    }
+    if (samples < PROBE_FRAMES) return;
+    this.probe = null;
+    const avg = timer.averages();
+    const timing: ProbeTiming = {
+      count: this.sim.count,
+      stepMs: SIM_PASSES.reduce((sum, name) => sum + (avg.get(name) ?? 0), 0),
+      drawMs: avg.get('draw') ?? 0,
+      fixedMs: avg.get('composite') ?? 0,
+    };
+    const count = pickCount(timing);
+    // Presets don't include the count, so the preset stays selected.
+    if (count !== this.current.params.count) this.update({ params: { count } }, { preset: this.presetId });
+    probe.done({ timing, count });
+  }
+
   // ---- camera and pointer -------------------------------------------------
 
   private resize(): void {
@@ -409,6 +466,7 @@ export class App {
     const hook = this.afterFrame;
     this.afterFrame = null;
     hook?.();
+    if (this.probe) this.checkProbe();
 
     const avgMs = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.hud.update(now, {

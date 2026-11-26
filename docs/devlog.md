@@ -84,3 +84,11 @@ Sizes here are MiB, as the capture script prints them. The first hero GIF was 20
 - 512 × 288: 4.3 MiB.
 
 The trajectories aren't bit-reproducible (see the README's known gaps), so every recording differs a little and the size wandered between 4.3 and 4.7 MiB across runs of the 100-frame version. The script now records 90 frames to leave some margin; the committed GIF is 4.2 MiB (4.4 MB).
+
+## A starting count from a one-second probe
+
+The probe times frames at 65,536 particles, throws away the first 20 timed frames while clocks settle, averages the next 40, and extrapolates linearly. On the RTX 5070 in headless Chrome it measures about 0.12 ms per simulation step, 0.12 ms for the sprite pass and 0.01 ms for compositing, and picks 262,144, the top of the automatic range.
+
+Linear is pessimistic there. The benchmark table has GPU time per frame going from 0.61 ms at 65,536 particles to 1.24 ms at 262,144: twice the cost for four times the particles, so at these sizes a large share of the time does not grow with the count. A guess that errs low is the right failure for a first impression. The range stops at 262,144 on purpose: the presets were tuned around the default, and a million particles is still one key press away.
+
+Automated browsers don't probe unless the URL asks for it (`?probe=1`), so the end-to-end tests and the benchmark keep starting at 65,536 particles.

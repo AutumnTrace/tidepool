@@ -3,6 +3,7 @@ import { openWithGpu } from './gpu';
 import { decodeState, encodeState, type AppState } from '../src/sim/url-state';
 import { fromRows } from '../src/sim/matrix';
 import { PRESETS } from '../src/sim/presets';
+import { AUTO_COUNT, pickCount } from '../src/sim/probe';
 
 const stateOf = (page: import('@playwright/test').Page) => page.evaluate(() => window.tidepool!.app.state);
 
@@ -90,6 +91,31 @@ test('number keys load presets and the matrix editor edits the rules', async ({ 
   const after = await stateOf(page);
   expect(after.matrix.values[0]).toBeGreaterThan(cells.matrix.values[0]!);
   expect(await page.evaluate(() => window.tidepool!.app.presetId)).toBeNull();
+});
+
+test('a first visit picks the starting count from a GPU probe, and a reload keeps it', async ({ page }) => {
+  // Automated browsers skip the probe unless asked, so the other tests start at the default.
+  await openWithGpu(page, './?probe=1', { hardware: true });
+  const outcome = await page.evaluate(() => window.tidepool!.probe);
+  test.skip(!outcome, 'the probe did not run (no timestamp queries on this adapter)');
+  const { timing, count } = outcome!;
+  console.log(`[tidepool] probe at ${timing.count}: step ${timing.stepMs.toFixed(3)} ms, draw ${timing.drawMs.toFixed(3)} ms, composite ${timing.fixedMs.toFixed(3)} ms -> ${count}`);
+  expect(timing.count).toBe(65536);
+  expect(timing.stepMs).toBeGreaterThan(0);
+  expect(count).toBe(pickCount(timing));
+  expect(count).toBeGreaterThanOrEqual(AUTO_COUNT.min);
+  expect(count).toBeLessThanOrEqual(AUTO_COUNT.max);
+  await expect.poll(() => page.evaluate(() => window.tidepool!.app.sim.count)).toBe(count);
+  expect(await page.evaluate(() => window.tidepool!.app.presetId)).toBe('tidepool');
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain(`n=${count}&`);
+  if (count !== timing.count) {
+    await expect(page.locator('.toast')).toHaveText(`Started with ${count.toLocaleString('en-US')} particles for this GPU. [ and ] change it.`);
+  }
+
+  await page.reload();
+  await page.waitForFunction(() => window.tidepool !== undefined);
+  expect(await page.evaluate(() => window.tidepool!.probe)).toBeUndefined();
+  expect(await page.evaluate(() => window.tidepool!.app.sim.count)).toBe(count);
 });
 
 test('shows a friendly message when WebGPU is missing', async ({ page }) => {

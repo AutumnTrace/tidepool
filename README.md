@@ -50,6 +50,8 @@ The matrix editor is a heatmap: teal attracts, rose repels. Drag a cell up or do
 
 Everything that defines what you see (seed, particle count, species, physics, the matrix itself, trails, glow and exposure) is kept in the URL hash, so any link reproduces the setup. The matrix is packed as one signed byte per entry in base64url, so even a 12-species matrix is only 192 characters of the link.
 
+A first visit without a count in the link starts at a count picked for your GPU. Tidepool times about a second of frames at 65,536 particles with timestamp queries, then switches to the largest power of two from 16,384 to 262,144 whose GPU work should stay under 8 ms a frame. From then on the count is in the hash like everything else, so a reload keeps it. `?probe=0` turns this off. Browsers without timestamp queries, and software adapters, keep 65,536.
+
 <p align="center">
   <img src="docs/media/panel.jpg" width="820" alt="The app with the control panel open: presets, a 6 by 6 heatmap of the attraction matrix, particle and species steppers, and the GPU timings readout in the corner">
 </p>
@@ -139,7 +141,7 @@ There's no framework and no runtime dependency: Vite, TypeScript and WGSL. The a
 - **The force pass is a straightforward one-thread-per-particle loop.** Half-size cells with a 5 x 5 neighbourhood would cut the candidate area by about 30%, and the neighbour walk could be tiled through workgroup memory. Neither is done yet.
 - **No subgroup operations.** The scan uses a workgroup-memory Hillis-Steele step where `subgroupExclusiveAdd` would do, on adapters that have it.
 - **Only tested on one machine.** Numbers and behaviour on Safari, Firefox, mobile and integrated GPUs are unverified.
-- **No auto-tuning.** It doesn't pick a particle count for your GPU; it starts at 65,536 and lets you double it.
+- **The starting count is a linear guess.** The probe extrapolates linearly from 65,536 particles. On the RTX 5070 that overestimates the cost of larger counts: GPU time per frame roughly doubles from 65,536 to 262,144 particles instead of growing fourfold, so the pick errs low. Steady-state cost also depends on the preset, because the force pass slows down as structures crowd the bins.
 
 ## Credits and references
 

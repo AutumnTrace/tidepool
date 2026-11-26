@@ -4,7 +4,7 @@
  * own Simulation on the app's device, so it never disturbs what is on
  * screen.
  */
-import type { App } from './app';
+import type { App, ProbeOutcome } from './app';
 import { Simulation, readBuffers, type Method } from './gpu/simulation';
 import { PrefixSum } from './gpu/prefix-sum';
 import { DEFAULT_PARAMS, worldFor, type SimParams } from './sim/params';
@@ -66,6 +66,8 @@ export interface DebugApi {
   adapter: { vendor: string; architecture: string; description: string; isFallback: boolean };
   timestamps: boolean;
   presets: readonly Preset[];
+  /** The startup probe, when one ran: what it measured and the count it picked. */
+  probe?: Promise<ProbeOutcome | null>;
   gpuStep(req: GpuStepRequest): Promise<GpuStepResult>;
   gpuScan(lengths: number[], seed: number): Promise<ScanCheck[]>;
   bench(req: BenchRequest): Promise<BenchResult>;
