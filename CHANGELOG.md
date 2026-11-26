@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
 ### Added
 
 - A first visit without a count in the link starts at a count picked for the GPU: about a
@@ -39,4 +41,5 @@ First public version.
 - Benchmark (`npm run bench`) and media capture (`npm run capture`) scripts.
 - CI (typecheck, unit tests, build, end-to-end) and GitHub Pages deployment.
 
+[0.2.0]: https://github.com/AutumnTrace/tidepool/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/AutumnTrace/tidepool/releases/tag/v0.1.0
