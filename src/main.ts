@@ -4,6 +4,7 @@ import { App } from './app';
 import { installDebugApi } from './debug';
 import { PointerControls } from './input';
 import { PRESETS } from './sim/presets';
+import { probeWanted } from './sim/probe';
 import { Panel } from './ui/panel';
 import { HelpOverlay, Toast } from './ui/overlays';
 import { installShortcuts } from './ui/shortcuts';
@@ -26,6 +27,8 @@ function showUnsupported(reason: string): void {
 
 async function main(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>('#stage')!;
+  // Decided before the app writes its state (count included) into the hash.
+  const probe = probeWanted(location.search, location.hash, navigator.webdriver === true);
   let app: App;
   try {
     const gpu = await initGpu();
@@ -62,6 +65,15 @@ async function main(): Promise<void> {
   });
   installDebugApi(app);
   app.start();
+  if (probe) {
+    const outcome = app.probeCount();
+    window.tidepool!.probe = outcome;
+    void outcome.then((o) => {
+      if (o && o.count !== o.timing.count) {
+        toast.show(`Started with ${o.count.toLocaleString('en-US')} particles for this GPU. [ and ] change it.`);
+      }
+    });
+  }
 }
 
 void main();
